@@ -13,8 +13,8 @@ model:
   pretrained: true
   heads:
     category: 15
-    color: 10
-    fabric: 5
+    color: 12
+    fabric: 8
     style: 4
 
 training:
