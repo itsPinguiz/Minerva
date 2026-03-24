@@ -1,0 +1,9 @@
+INFO | Loading data from data/interim/master_dataset.csv ...
+INFO | Reading data/interim/master_dataset.csv …
+INFO | Loading existing encoders from data/processed/label_encoders.pkl
+INFO | Split sizes → train=835552  val=104444  test=104445
+INFO | Head sizes: {'category': 148, 'color': 21, 'fabric': 40, 'style': 80}
+INFO | Model loaded → 24,100,193 params on cuda
+INFO | =================================================================
+INFO | Starting training  |  epochs=10  batch=32  lr=1.0e-04  device=cuda
+INFO | =================================================================

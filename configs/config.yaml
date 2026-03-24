@@ -12,10 +12,10 @@ model:
   backbone: "resnet50"
   pretrained: true
   heads:
-    category: 15
-    color: 12
-    fabric: 8
-    style: 4
+    category: 148
+    color: 21
+    fabric: 40
+    style: 80
 
 training:
   batch_size: 32

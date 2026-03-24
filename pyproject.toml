@@ -10,7 +10,11 @@ dependencies = [
     "tqdm",
     "pillow",
     "pandas",
-    "scikit-learn"
+    "scikit-learn",
+    "tensorboard",
+    "requests",
+    "joblib",
+    "aiohttp"
 ]
 
 [[tool.uv.index]]
