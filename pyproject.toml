@@ -1,0 +1,23 @@
+[project]
+name = "wardrobe-ml-backend"
+version = "0.1.0"
+description = "Multi-head classification model for personal wardrobe app"
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+    "torchvision",
+    "omegaconf",
+    "tqdm",
+    "pillow",
+    "pandas",
+    "scikit-learn"
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu121" }
+torchvision = { index = "pytorch-cu121" }

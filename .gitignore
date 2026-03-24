@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Project Data
+data/
+!data/.gitkeep
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+
+# Weights & Checkpoints
+weights/
+!weights/.gitkeep
+*.pt
+*.pth
+*.safetensors
+
+# Jupyter Cache
+.ipynb_checkpoints
