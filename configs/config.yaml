@@ -14,7 +14,8 @@ model:
   heads:
     category: 15
     color: 10
-    season: 4
+    fabric: 5
+    style: 4
 
 training:
   batch_size: 32

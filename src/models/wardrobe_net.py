@@ -23,7 +23,8 @@ class WardrobeMultiHeadNet(nn.Module):
         # Multi-head classification layers
         self.head_category = nn.Linear(in_features, config.model.heads.category)
         self.head_color = nn.Linear(in_features, config.model.heads.color)
-        self.head_season = nn.Linear(in_features, config.model.heads.season)
+        self.head_fabric = nn.Linear(in_features, config.model.heads.fabric)
+        self.head_style = nn.Linear(in_features, config.model.heads.style)
 
     def forward(self, x):
         # Extract features
@@ -33,11 +34,13 @@ class WardrobeMultiHeadNet(nn.Module):
         # Forward pass through each head
         out_category = self.head_category(features)
         out_color = self.head_color(features)
-        out_season = self.head_season(features)
+        out_fabric = self.head_fabric(features)
+        out_style = self.head_style(features)
         
         # Return a dictionary of predictions
         return {
             "category": out_category,
             "color": out_color,
-            "season": out_season
+            "fabric": out_fabric,
+            "style": out_style
         }
