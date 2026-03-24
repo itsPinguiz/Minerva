@@ -7,3 +7,64 @@ INFO | Model loaded → 24,100,193 params on cuda
 INFO | =================================================================
 INFO | Starting training  |  epochs=10  batch=32  lr=1.0e-04  device=cuda
 INFO | =================================================================
+INFO | Loading data from data/interim/train_ready_dataset.csv ...
+INFO | Reading data/interim/train_ready_dataset.csv …
+INFO | Loading existing encoders from data/processed/label_encoders.pkl
+INFO | Split sizes → train=477305  val=59663  test=59664
+INFO | Head sizes: {'category': 148, 'color': 21, 'fabric': 40, 'style': 80}
+INFO | Model loaded → 24,100,193 params on cpu
+INFO | =================================================================
+INFO | Starting training  |  epochs=1  batch=4  lr=1.0e-04  device=cpu
+INFO | =================================================================
+INFO | Loading data from data/interim/train_ready_dataset.csv ...
+INFO | Reading data/interim/train_ready_dataset.csv …
+INFO | Loading existing encoders from data/processed/label_encoders.pkl
+INFO | Split sizes → train=477305  val=59663  test=59664
+INFO | Head sizes: {'category': 148, 'color': 21, 'fabric': 40, 'style': 80}
+INFO | Model loaded → 24,100,193 params on cuda
+INFO | =================================================================
+INFO | Starting training  |  epochs=50  batch=32  lr=1.0e-04  device=cuda
+INFO | =================================================================
+INFO | Loading data from data/interim/train_ready_dataset.csv ...
+INFO | Reading data/interim/train_ready_dataset.csv …
+INFO | Loading existing encoders from data/processed/label_encoders.pkl
+INFO | Split sizes → train=477305  val=59663  test=59664
+INFO | Head sizes: {'category': 148, 'color': 21, 'fabric': 40, 'style': 80}
+INFO | Model loaded → 24,100,193 params on cuda
+INFO | =================================================================
+INFO | Starting training  |  epochs=50  batch=64  lr=1.0e-04  device=cuda
+INFO | =================================================================
+INFO | Loading data from data/interim/train_ready_dataset.csv ...
+INFO | Reading data/interim/train_ready_dataset.csv …
+INFO | Loading existing encoders from data/processed/label_encoders.pkl
+INFO | Split sizes → train=477305  val=59663  test=59664
+INFO | Head sizes: {'category': 148, 'color': 21, 'fabric': 40, 'style': 80}
+INFO | Model loaded → 24,100,193 params on cuda
+INFO | =================================================================
+INFO | Starting training  |  epochs=50  batch=128  lr=1.0e-04  device=cuda
+INFO | =================================================================
+INFO | [Epoch 01/50   952s]  train=0.3210  val=0.2820  lr=1.0e-04  |  CAT=0.0185  COL=0.1490  FAB=0.0546  STY=0.0599
+INFO |    -> New best val_loss=0.2820  – checkpoint saved to weights/best_model.pth
+INFO |    -> Last checkpoint saved for resuming to weights/last_checkpoint.pth
+INFO | [Epoch 02/50   968s]  train=0.2719  val=0.2737  lr=1.0e-04  |  CAT=0.0173  COL=0.1448  FAB=0.0530  STY=0.0586
+INFO |    -> New best val_loss=0.2737  – checkpoint saved to weights/best_model.pth
+INFO |    -> Last checkpoint saved for resuming to weights/last_checkpoint.pth
+INFO | [Epoch 03/50   952s]  train=0.2580  val=0.2655  lr=1.0e-04  |  CAT=0.0167  COL=0.1412  FAB=0.0508  STY=0.0569
+INFO |    -> New best val_loss=0.2655  – checkpoint saved to weights/best_model.pth
+INFO |    -> Last checkpoint saved for resuming to weights/last_checkpoint.pth
+INFO | [Epoch 04/50   945s]  train=0.2473  val=0.2643  lr=1.0e-04  |  CAT=0.0165  COL=0.1406  FAB=0.0506  STY=0.0567
+INFO |    -> New best val_loss=0.2643  – checkpoint saved to weights/best_model.pth
+INFO |    -> Last checkpoint saved for resuming to weights/last_checkpoint.pth
+INFO | [Epoch 05/50   975s]  train=0.2377  val=0.2649  lr=1.0e-04  |  CAT=0.0165  COL=0.1404  FAB=0.0508  STY=0.0572
+INFO |    -> Last checkpoint saved for resuming to weights/last_checkpoint.pth
+INFO | [Epoch 06/50   960s]  train=0.2287  val=0.2625  lr=1.0e-04  |  CAT=0.0161  COL=0.1411  FAB=0.0497  STY=0.0556
+INFO |    -> New best val_loss=0.2625  – checkpoint saved to weights/best_model.pth
+INFO |    -> Last checkpoint saved for resuming to weights/last_checkpoint.pth
+INFO | [Epoch 07/50   989s]  train=0.2203  val=0.2647  lr=1.0e-04  |  CAT=0.0161  COL=0.1431  FAB=0.0496  STY=0.0558
+INFO |    -> Last checkpoint saved for resuming to weights/last_checkpoint.pth
+INFO | [Epoch 08/50  1017s]  train=0.2125  val=0.2675  lr=1.0e-04  |  CAT=0.0162  COL=0.1442  FAB=0.0504  STY=0.0567
+INFO |    -> Last checkpoint saved for resuming to weights/last_checkpoint.pth
+INFO | [Epoch 09/50  1055s]  train=0.2050  val=0.2682  lr=1.0e-04  |  CAT=0.0160  COL=0.1469  FAB=0.0497  STY=0.0555
+INFO |    -> Last checkpoint saved for resuming to weights/last_checkpoint.pth
+INFO | [Epoch 10/50  1035s]  train=0.1979  val=0.2729  lr=5.0e-05  |  CAT=0.0161  COL=0.1504  FAB=0.0504  STY=0.0560
+INFO |    -> Last checkpoint saved for resuming to weights/last_checkpoint.pth

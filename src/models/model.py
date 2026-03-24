@@ -6,9 +6,12 @@ loop can use ``BCEWithLogitsLoss`` with NaN-masking (target == -1).
 
 from __future__ import annotations
 
+import logging
 import torch
 import torch.nn as nn
 from torchvision.models import resnet50, ResNet50_Weights
+
+logger = logging.getLogger(__name__)
 
 
 class WardrobeMultiHeadModel(nn.Module):
@@ -70,6 +73,7 @@ class WardrobeMultiHeadModel(nn.Module):
 
 # ──────────────────────────── sanity-check ────────────────────────
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = WardrobeMultiHeadModel().to(device)
 
@@ -79,11 +83,11 @@ if __name__ == "__main__":
     total_params = sum(p.numel() for p in model.parameters())
     trainable   = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-    print(f"Device          : {device}")
-    print(f"Total params    : {total_params:,}")
-    print(f"Trainable params: {trainable:,}\n")
-    print("Output shapes (expected [batch_size, num_classes]):")
+    logger.info(f"Device          : {device}")
+    logger.info(f"Total params    : {total_params:,}")
+    logger.info(f"Trainable params: {trainable:,}")
+    logger.info("Output shapes (expected [batch_size, num_classes]):")
     for name, t in logits.items():
-        print(f"  {name:10s} → {list(t.shape)}  "
-              f"dtype={t.dtype}  min={t.min().item():.3f}  max={t.max().item():.3f}")
-    print("\nSanity-check passed ✓")
+        logger.info(f"  {name:10s} → {list(t.shape)}  "
+                    f"dtype={t.dtype}  min={t.min().item():.3f}  max={t.max().item():.3f}")
+    logger.info("Sanity-check passed ✓")

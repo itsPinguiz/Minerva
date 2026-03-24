@@ -14,7 +14,8 @@ dependencies = [
     "tensorboard",
     "requests",
     "joblib",
-    "aiohttp"
+    "aiohttp",
+    "setuptools>=82.0.1",
 ]
 
 [[tool.uv.index]]

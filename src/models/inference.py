@@ -1,107 +1,128 @@
+import argparse
+import joblib
+import logging
+import os
 import torch
+import yaml
 from torchvision import transforms
 from PIL import Image
-import os
 
-def predict_item(image_path, model, transform, label_maps, device="cuda"):
+# Assicurati che l'import del modello punti al file corretto
+from src.models.model import WardrobeMultiHeadModel
+
+logger = logging.getLogger(__name__)
+
+def load_config(config_path="configs/config.yaml"):
+    with open(config_path, "r") as f:
+        return yaml.safe_load(f)
+
+def predict_item(image_path, model, transform, encoders, device="cuda", threshold=0.5):
     """
-    Esegue l'inferenza su una singola immagine utilizzando un modello Multi-Head.
+    Esegue l'inferenza multi-label su una singola immagine.
     """
-    # 1. Carica l'immagine
     if not os.path.exists(image_path):
-        print(f"Errore: l'immagine '{image_path}' non esiste.")
-        return None
+        raise FileNotFoundError(f"Errore: l'immagine '{image_path}' non esiste.")
         
-    try:
-        image = Image.open(image_path).convert("RGB")
-    except Exception as e:
-        print(f"Errore nel caricamento dell'immagine {image_path}: {e}")
-        return None
-        
-    # 2. Applica la trasformazione (resize -> tensor -> normalize puro, zero augmentation)
-    if transform:
-        img_tensor = transform(image)
-        # I modelli PyTorch si aspettano sempre input in forma di batch (B, C, H, W)
-        # unsqueeze(0) aggiunge l'asse del batch per trasformarlo da (3, 224, 224) a (1, 3, 224, 224)
-        img_tensor = img_tensor.unsqueeze(0)
-    else:
-        raise ValueError("È necessaria una pipeline di trasformazione valida.")
-        
-    # 3. Sposta i dati sulla GPU (se disponibile)
-    img_tensor = img_tensor.to(device)
+    image = Image.open(image_path).convert("RGB")
+    
+    # 1. Preprocessing (Aggiungiamo la batch dimension con unsqueeze)
+    img_tensor = transform(image).unsqueeze(0).to(device)
     model = model.to(device)
     
-    # 4. Inferenza
-    model.eval()  # Disabilita strati dinamici come Dropout e cristallizza le BatchNorm
-    with torch.no_grad():  # Cruciale: disabilita il grafo dei gradienti per risparmiare VRAM e salire di velocità
+    # 2. Inferenza
+    model.eval()
+    with torch.no_grad():
         outputs = model(img_tensor)
         
-    # 5. Elabora le predizioni (Argmax sui Logit)
     predictions = {}
     
+    # 3. Decoding Multi-Label
     for head_name, logits in outputs.items():
-        # Calcoliamo le probabilità col Softmax lungo l'asse delle classi (dim=1)
-        probabilities = torch.softmax(logits, dim=1)
+        # Applichiamo la Sigmoide per ottenere probabilità indipendenti tra 0 e 1
+        probs = torch.sigmoid(logits)[0]  # [0] perché abbiamo un batch di 1
         
-        # Troviamo l'indice con il punteggio fiduciario più alto
-        predicted_idx = torch.argmax(probabilities, dim=1).item()
+        # Troviamo tutte le classi che superano la soglia di confidenza
+        mask = probs > threshold
         
-        # Mappiamo l'id numerico alla stringa testuale, oppure usiamo un default di emergenza
-        if head_name in label_maps and predicted_idx in label_maps[head_name]:
-            predicted_label = label_maps[head_name][predicted_idx]
+        # Recuperiamo l'encoder specifico per questa testa
+        encoder = encoders[head_name]
+        
+        # Estraiamo i nomi delle classi usando la maschera booleana
+        predicted_classes = encoder.classes_[mask.cpu().numpy()]
+        
+        # Fallback di sicurezza: se nessuna classe supera la soglia, 
+        # prendiamo quella con il punteggio più alto in assoluto (argmax)
+        if len(predicted_classes) == 0:
+            best_idx = torch.argmax(probs).item()
+            # È già una lista Python, la salviamo direttamente
+            predictions[head_name] = [encoder.classes_[best_idx]]
         else:
-            predicted_label = f"Classe ID: {predicted_idx}"
-            
-        predictions[head_name] = predicted_label
+            # È un array NumPy, usiamo tolist()
+            predictions[head_name] = predicted_classes.tolist()
         
-    # 6. Formatta e stampa un output estremamente pulito
-    print(f"\n=> Analisi File: {os.path.basename(image_path)}")
-    print(f"   Predizione: {predictions.get('category', 'Sconosciuta')}, "
-          f"Colore: {predictions.get('color', 'Sconosciuto')}, "
-          f"Tessuto: {predictions.get('fabric', 'Sconosciuto')}, "
-          f"Stile: {predictions.get('style', 'Sconosciuto')}")
-          
     return predictions
 
 if __name__ == "__main__":
-    from src.models.wardrobe_net import WardrobeMultiHeadModel
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
+    parser = argparse.ArgumentParser(description="Testa il modello su una foto reale.")
+    parser.add_argument("--image", type=str, required=True, help="Path dell'immagine da analizzare")
+    parser.add_argument("--config", type=str, default="config.yaml", help="Path del file di configurazione")
+    parser.add_argument("--weights", type=str, default="weights/best_model.pth", help="Path dei pesi del modello")    
+    parser.add_argument("--threshold", type=float, default=0.5, help="Soglia di confidenza (0.0 - 1.0)")
+    args = parser.parse_args()
+
+    # 1. Setup
+    config = load_config(args.config)
+    dev = config["system"]["device"] if torch.cuda.is_available() else "cpu"
+    logger.info(f"Boot Inferenza su device: {dev.upper()}")
+
+    # 2. Caricamento Encoder
+    encoders_path = config["data"]["encoders_path"]
+    if not os.path.exists(encoders_path):
+        raise FileNotFoundError(f"Encoder non trovati in {encoders_path}. Hai lanciato il training?")
+    encoders = joblib.load(encoders_path)
     
-    # Dizionari che mappano le reti logiche ai nomi per l'utente finale
-    DUMMY_LABEL_MAPS = {
-        "category": {0: "T-shirt", 1: "Pantaloni", 2: "Giacca", 3: "Sneakers", 14: "Camicia"},
-        "color": {0: "Blu", 1: "Maculato", 2: "Nero", 3: "Rosso", 11: "Bianco"},
-        "fabric": {0: "Cotone", 1: "Seta", 2: "Denim", 3: "Lino"},
-        "style": {0: "Casual", 1: "Elegante", 2: "Sportivo", 3: "Invernale"}
-    }
+    # 3. Caricamento Modello e Pesi
+    logger.info(f"Caricamento modello da {args.weights} ...")
+    model_instance = WardrobeMultiHeadModel(
+        num_category=config["model"]["heads"]["category"],
+        num_color=config["model"]["heads"]["color"],
+        num_fabric=config["model"]["heads"]["fabric"],
+        num_style=config["model"]["heads"]["style"]
+    )
     
-    # Pipeline di trasformazione strettamente da Inferenza (Normalizzazione Standard ImageNet)
+    if os.path.exists(args.weights):
+        checkpoint = torch.load(args.weights, map_location=dev, weights_only=True)
+        # Se il checkpoint contiene altre info (epoch, optimizer), estraiamo solo il model_state
+        state_dict = checkpoint.get("model_state_dict", checkpoint) 
+        model_instance.load_state_dict(state_dict)
+    else:
+        logger.warning("ATTENZIONE: best_model.pth non trovato. Verranno usati pesi casuali (non addestrati)!")
+
+    # 4. Pipeline di trasformazione (Stessa risoluzione del training, ma senza augmentation)
     inf_transform = transforms.Compose([
-        transforms.Resize((224, 224)),
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     
-    # Setup del file d'esempio
-    test_img = "data/raw/mia_maglietta.jpg"
-    os.makedirs(os.path.dirname(test_img), exist_ok=True)
-    if not os.path.exists(test_img):
-        img_dummy = Image.new('RGB', (1024, 1024), color=(0, 0, 255)) # Maglietta Blu sintetica
-        img_dummy.save(test_img)
-        
-    # Setup del Device e load del Modello
-    dev = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Boot Inferenza su device: {dev.upper()}")
-    
-    model_instance = WardrobeMultiHeadModel()
-    
-    # IN UN CONTESTO REALE, qui caricheresti i pesi post-training:
-    # model_instance.load_state_dict(torch.load("weights/model_epoch_50.pth"))
-    
-    # Richiamo della predizione astratta
-    predict_item(
-        image_path=test_img, 
+    # 5. Esegui la predizione
+    preds = predict_item(
+        image_path=args.image, 
         model=model_instance, 
         transform=inf_transform, 
-        label_maps=DUMMY_LABEL_MAPS, 
-        device=dev
+        encoders=encoders, 
+        device=dev,
+        threshold=args.threshold
     )
+    
+    # 6. Stampa Risultati Formattati
+    logger.info(f"\n{'='*40}")
+    logger.info(f"👕 ANALISI CAPO: {os.path.basename(args.image)}")
+    logger.info(f"{'='*40}")
+    logger.info(f" - Categoria : {', '.join(preds['category']).title()}")
+    logger.info(f" - Colore    : {', '.join(preds['color']).title()}")
+    logger.info(f" - Tessuto   : {', '.join(preds['fabric']).title()}")
+    logger.info(f" - Stile     : {', '.join(preds['style']).title()}")
+    logger.info(f"{'='*40}\n")

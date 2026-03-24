@@ -9,6 +9,7 @@ Features
 * **AdamW + ReduceLROnPlateau** on total validation loss.
 * **Per-head validation metrics** logged to TensorBoard + console.
 * **Best-model checkpointing** (epoch, optimizer, scheduler, scaler state).
+* **Resume Training**: Can pause and resume using --resume flag.
 
 Usage
 -----
@@ -16,6 +17,7 @@ Usage
 
     uv run python src/models/train.py                        # defaults
     uv run python src/models/train.py --epochs 10 --bs 64    # override
+    uv run python src/models/train.py --resume               # resumes from last epoch
 """
 
 from __future__ import annotations
@@ -31,6 +33,7 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.tensorboard import SummaryWriter
+from omegaconf import OmegaConf
 from tqdm import tqdm
 
 # ── project imports (run from repo root) ──────────────────────────
@@ -181,6 +184,7 @@ def train_model(
     device_name: str = "cuda",
     run_dir: str = "runs/wardrobe",
     checkpoint_dir: str = "weights",
+    resume: bool = False,
 ) -> None:
     device = torch.device(device_name if torch.cuda.is_available() else "cpu")
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -225,9 +229,28 @@ def train_model(
     )
     scaler = torch.amp.GradScaler("cuda")
 
-    # ── training loop ─────────────────────────────────────────────
+    # ── Checkpoint Resuming Logic ─────────────────────────────────
+    start_epoch = 1
     best_val_loss = float("inf")
+    last_ckpt_path = os.path.join(checkpoint_dir, "last_checkpoint.pth")
 
+    if resume and os.path.exists(last_ckpt_path):
+        logger.info("Trovato checkpoint in %s. Ripristino in corso...", last_ckpt_path)
+        checkpoint = torch.load(last_ckpt_path, map_location=device)
+        
+        model.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        
+        if checkpoint.get("scheduler_state_dict"):
+            scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+        if checkpoint.get("scaler_state_dict") and scaler:
+            scaler.load_state_dict(checkpoint["scaler_state_dict"])
+            
+        start_epoch = checkpoint["epoch"] + 1
+        best_val_loss = checkpoint.get("best_val_loss", float("inf"))
+        logger.info("Training ripristinato con successo. Ripartiamo dall'epoca %d!", start_epoch)
+
+    # ── training loop ─────────────────────────────────────────────
     logger.info("=" * 65)
     logger.info(
         "Starting training  |  epochs=%d  batch=%d  lr=%.1e  device=%s",
@@ -235,7 +258,7 @@ def train_model(
     )
     logger.info("=" * 65)
 
-    for epoch in range(1, epochs + 1):
+    for epoch in range(start_epoch, epochs + 1):
         t0 = time.time()
 
         # — train —
@@ -267,10 +290,10 @@ def train_model(
             epoch, epochs, elapsed, train_loss, val_loss, current_lr, head_str,
         )
 
-        # — checkpoint —
+        # — checkpoint best model —
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            ckpt_path = os.path.join(checkpoint_dir, "best_model.pth")
+            best_ckpt_path = os.path.join(checkpoint_dir, "best_model.pth")
             torch.save(
                 {
                     "epoch": epoch,
@@ -281,12 +304,27 @@ def train_model(
                     "best_val_loss": best_val_loss,
                     "head_sizes": head_sizes,
                 },
-                ckpt_path,
+                best_ckpt_path,
             )
             logger.info(
                 "   -> New best val_loss=%.4f  – checkpoint saved to %s",
-                best_val_loss, ckpt_path,
+                best_val_loss, best_ckpt_path,
             )
+            
+        # — checkpoint last model (ALWAYS SAVE AT END OF EPOCH) —
+        torch.save(
+            {
+                "epoch": epoch,
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "scheduler_state_dict": scheduler.state_dict(),
+                "scaler_state_dict": scaler.state_dict(),
+                "best_val_loss": best_val_loss,
+                "head_sizes": head_sizes,
+            },
+            last_ckpt_path,
+        )
+        logger.info("   -> Last checkpoint saved for resuming to %s", last_ckpt_path)
 
     writer.close()
     logger.info("Training complete.  Best val loss: %.4f", best_val_loss)
@@ -298,28 +336,38 @@ def train_model(
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train WardrobeMultiHeadModel")
-    p.add_argument("--csv", default="data/interim/master_dataset.csv")
-    p.add_argument("--epochs", type=int, default=50)
-    p.add_argument("--bs", type=int, default=32, help="Batch size")
-    p.add_argument("--lr", type=float, default=1e-4)
-    p.add_argument("--wd", type=float, default=1e-5, help="Weight decay")
-    p.add_argument("--workers", type=int, default=4)
-    p.add_argument("--device", default="cuda")
-    p.add_argument("--run-dir", default="runs/wardrobe")
-    p.add_argument("--ckpt-dir", default="weights")
+    p.add_argument("--config", default="configs/config.yaml", help="Path to config file")
+    p.add_argument("--csv", help="Override CSV path")
+    p.add_argument("--epochs", type=int, help="Override number of epochs")
+    p.add_argument("--bs", type=int, help="Override batch size")
+    p.add_argument("--lr", type=float, help="Override learning rate")
+    p.add_argument("--device", help="Override device (cuda/cpu)")
+    p.add_argument("--resume", action="store_true", help="Resume training from last_checkpoint.pth")
     return p.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
+
+    # Load configuration
+    cfg = OmegaConf.load(args.config)
+
+    # CLI Overrides
+    csv_path = args.csv or cfg.data.csv_path
+    epochs = args.epochs or cfg.training.epochs
+    batch_size = args.bs or cfg.training.batch_size
+    lr = args.lr or cfg.training.learning_rate
+    device_name = args.device or cfg.system.device
+
     train_model(
-        csv_path=args.csv,
-        epochs=args.epochs,
-        batch_size=args.bs,
-        lr=args.lr,
-        weight_decay=args.wd,
-        num_workers=args.workers,
-        device_name=args.device,
-        run_dir=args.run_dir,
-        checkpoint_dir=args.ckpt_dir,
+        csv_path=csv_path,
+        epochs=epochs,
+        batch_size=batch_size,
+        lr=lr,
+        weight_decay=cfg.training.weight_decay,
+        num_workers=cfg.system.num_workers,
+        device_name=device_name,
+        run_dir=f"runs/{cfg.model.backbone}_{cfg.system.seed}",
+        checkpoint_dir="weights",
+        resume=args.resume,
     )
